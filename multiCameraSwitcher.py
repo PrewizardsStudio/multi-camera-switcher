@@ -1,58 +1,56 @@
 moduleName = 'multiCameraSwitcher'
+moduleVersion = 1.1
 moduleNameLong = 'Multi Camera Switcher'
 moduleUrl = 'https://github.com/PrewizardsStudio/multi-camera-switcher'
 moduleIconUrl = 'https://github.com/PrewizardsStudio/multi-camera-switcher/blob/main/multiCameraSwitcher.png?raw=true'
 moduleCommand = """
 import maya.cmds as cmds
 
+def getPySideVersion():
+    import sys
+    
+    if 'PySide' in sys.modules:
+        return 'PySide'
+    elif 'PySide2' in sys.modules:
+        return 'PySide2'
+    elif 'PySide6' in sys.modules:
+        return 'PySide6'
+
 def initQT():
     import maya.OpenMayaUI as mui
-    import imp
-    try:
-        imp.find_module('PySide')
+    
+    PySideVersion = getPySideVersion()
+    
+    if PySideVersion == 'PySide':
+        PySideVersion = 'PySide'
         from PySide import QtGui, QtCore
         from preDevelopment.Qt.Qt import QtWidgets
-        from PySide.phonon import Phonon
         from shiboken import wrapInstance
-        sip = None
-    except ImportError:
-        try:
-            imp.find_module('PySide2')
-            from PySide2 import QtGui, QtWidgets, QtCore
-            from PySide2.QtWidgets import QAction
-            from shiboken2 import wrapInstance
-            Phonon = None
-            sip = None
-        except ImportError:
-            imp.find_module('PySide6')
-            from PySide6 import QtGui, QtWidgets, QtCore
-            from PySide6.QtGui import QAction
-            from shiboken6 import wrapInstance
-            Phonon = None
-            sip = None    
-    except ImportError:
-        from PyQt4 import QtGui, QtCore
-        from preDevelopment.Qt.Qt import QtWidgets
-        from PyQt4.phonon import Phonon
-        import sip
-        wrapInstance = None
-    return mui, imp, QtGui, QtCore, QtWidgets, Phonon, wrapInstance, sip, QAction
+    elif PySideVersion == 'PySide2':
+        PySideVersion = 'PySide2'
+        from PySide2 import QtGui, QtWidgets, QtCore
+        from PySide2.QtWidgets import QAction
+        from shiboken2 import wrapInstance
+    elif PySideVersion == 'PySide6':
+        PySideVersion = 'PySide6'
+        from PySide6 import QtGui, QtWidgets, QtCore
+        from PySide6.QtGui import QAction
+        from shiboken6 import wrapInstance
+ 
+    return mui, QtGui, QtCore, QtWidgets, wrapInstance, QAction
 
-mui, imp, QtGui, QtCore, QtWidgets, Phonon, wrapInstance, sip, QAction = initQT()
+mui, QtGui, QtCore, QtWidgets, wrapInstance, QAction = initQT()
 
-def getMainWindow(mui, imp, QtGui, QtCore, QtWidgets, Phonon, wrapInstance, sip):
+def getMainWindow(mui, QtGui, QtCore, QtWidgets, wrapInstance):
     main_window_ptr = mui.MQtUtil.mainWindow()
-    try:
-        imp.find_module('PySide')
+    if getPySideVersion() == 'PySide':
         mainWin = wrapInstance(long(main_window_ptr), QtGui.QWidget)
-    except ImportError:
+    else:
         import sys
         if sys.version_info[0] < 3:
             mainWin = wrapInstance(long(main_window_ptr), QtWidgets.QWidget)  
         else:            
             mainWin = wrapInstance(int(main_window_ptr), QtWidgets.QWidget) 
-    except ImportError:
-        mainWin = sip.wrapinstance(long(main_window_ptr), QtCore.QObject)
     return mainWin
 
 class multiCameraSwitcher(QtWidgets.QMainWindow):
@@ -64,7 +62,7 @@ class multiCameraSwitcher(QtWidgets.QMainWindow):
             except:
                 pass
 
-    def __init__(self, parent = getMainWindow(mui, imp, QtGui, QtCore, QtWidgets, Phonon, wrapInstance, sip)):        
+    def __init__(self, parent = getMainWindow(mui, QtGui, QtCore, QtWidgets, wrapInstance)):        
         self.closeExistingWindow()
         QtWidgets.QMainWindow.__init__(self, parent)
         self.recallFrame = False
@@ -74,7 +72,7 @@ class multiCameraSwitcher(QtWidgets.QMainWindow):
     def initUI(self):        
         # create window
         self.setWindowTitle('Cam Switcher')
-        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowMinMaxButtonsHint)        
+        #self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowMinMaxButtonsHint)
         self.resize(60, 300)
         self.statusBar().setSizeGripEnabled(False)
         self.centerWidget = QtWidgets.QWidget()
@@ -164,7 +162,8 @@ def onMayaDroppedPythonFile(args):
     installScript()
     
 def installScript():
-    import requests, os
+    import os
+    import urllib.request
     import maya.mel as mel
     import maya.cmds as cmds
 
@@ -178,8 +177,7 @@ def installScript():
     iconPath = os.path.join(appPath, version, "prefs/icons", iconImageName)
 
     if not os.path.exists(iconPath):
-        result = requests.get(moduleIconUrl, allow_redirects=True)
-        open(iconPath, 'wb').write(result.content)  
+        urllib.request.urlretrieve(moduleIconUrl, iconPath) 
 
     # Add to current shelf
     topShelf = mel.eval('$nul = $gShelfTopLevel')
